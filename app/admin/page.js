@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [event, setEvent] = useState("");
   const [passes, setPasses] = useState([]);
  
+  
   const createPass = async () => {
     try {
       const newRef = push(ref(db, "passes")); 
