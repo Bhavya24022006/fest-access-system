@@ -11,7 +11,6 @@ export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [event, setEvent] = useState("");
   const [passes, setPasses] = useState([]);
- 
   
   const createPass = async () => {
     try {
