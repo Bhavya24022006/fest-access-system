@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { ref, push, set, onValue } from "firebase/database";
 import { QRCodeCanvas } from "qrcode.react";
 
+
 export default function AdminPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
