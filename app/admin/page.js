@@ -103,6 +103,7 @@ export default function AdminPage() {
           <p>Status: {pass.used ? "Used" : "Not Used"}</p>
 
         
+        
           <QRCodeCanvas 
           value={pass.id} 
           size={300}
