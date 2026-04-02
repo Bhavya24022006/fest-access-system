@@ -23,14 +23,14 @@ const [password, setPassword] = useState("123456");
 
       const user = result.user;
 
-      // 🔥 GET USER DATA FROM DATABASE
+     
       const snapshot = await get(ref(db, "users/" + user.uid));
 
       if (snapshot.exists()) {
         const data = snapshot.val();
         console.log("User Data:", data);
 
-        // 🔥 ROLE CHECK
+         
         if (data.role === "admin") {
           window.location.href = "/dashboard";
         } else {

@@ -10,14 +10,13 @@ export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [event, setEvent] = useState("");
   const [passes, setPasses] = useState([]);
-
-  // ✅ CREATE PASS (FIXED)
+ 
   const createPass = async () => {
     try {
-      const newRef = push(ref(db, "passes")); // 🔥 MUST be inside
+      const newRef = push(ref(db, "passes")); 
 
       await set(newRef, {
-        id: newRef.key, // 🔥 VERY IMPORTANT
+        id: newRef.key, 
         name: name,
         email: email,
         event: event,
@@ -35,7 +34,7 @@ export default function AdminPage() {
     }
   };
 
-  // ✅ FETCH PASSES
+  
   useEffect(() => {
     const passesRef = ref(db, "passes");
 
@@ -103,7 +102,7 @@ export default function AdminPage() {
           <p>Status: {pass.used ? "Used" : "Not Used"}</p>
 
         
-        
+
           <QRCodeCanvas 
           value={pass.id} 
           size={300}
