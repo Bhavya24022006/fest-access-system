@@ -4,16 +4,14 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ref, get } from "firebase/database";
 import { auth, db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  // const [email, setEmail] = useState("");
-  // const [password, setPassword] = useState("");
-  const [email, setEmail] = useState("admin@test.com");
-const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
 
   const handleLogin = async () => {
-     console.log("Login function started");
-     console.log("Trying login with:", email, password);
     try {
       const result = await signInWithEmailAndPassword(
         auth,
@@ -23,33 +21,32 @@ const [password, setPassword] = useState("123456");
 
       const user = result.user;
 
-     
       const snapshot = await get(ref(db, "users/" + user.uid));
 
       if (snapshot.exists()) {
         const data = snapshot.val();
+
         console.log("User Data:", data);
 
-         
+        // 🔥 ROLE BASED REDIRECT
         if (data.role === "admin") {
-          window.location.href = "/dashboard";
+          router.push("/dashboard"); // admin page
         } else {
-          alert("Access denied: Not admin");
+          router.push("/user"); // normal user page
         }
       } else {
-        alert("No user data found in database");
+        alert("User not found in database");
       }
 
     } catch (error) {
-      console.error("FULL ERROR:", error);
       console.error(error);
       alert(error.message);
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Login Page</h1>
+    <div style={{ padding: "20px", textAlign: "center" }}>
+      <h1>Login</h1>
 
       <input
         type="email"

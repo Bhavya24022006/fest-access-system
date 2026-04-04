@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { ref, push, set, onValue } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function AdminPage() {
@@ -11,6 +11,36 @@ export default function AdminPage() {
   const [event, setEvent] = useState("");
   const [passes, setPasses] = useState([]);
   const [photo, setPhoto] = useState(null);
+  const [userExists, setUserExists] = useState(false);
+
+  // 🔍 CHECK USER
+  const checkUser = async (email) => {
+    try {
+      if (!email.includes("@")) return;
+
+      const res = await fetch(`/api/checkUser?email=${email}`);
+      const data = await res.json();
+
+      console.log("checkUser:", data);
+
+      if (data.exists) {
+        setName(data.name);
+        setUserExists(true);
+
+        if (data.photo) {
+          setPhoto(data.photo);
+        }
+
+      } else {
+        setUserExists(false);
+        setName("");
+        setPhoto(null);
+      }
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // 🔥 Convert image → base64
   const convertToBase64 = (file) => {
@@ -22,41 +52,49 @@ export default function AdminPage() {
     });
   };
 
+  // 🎟 CREATE PASS
   const createPass = async () => {
     try {
-      const newRef = push(ref(db, "passes"));
-      const token = crypto.randomUUID();
-
       let base64Image = "";
 
-      if (photo) {
+      if (!userExists && photo) {
         base64Image = await convertToBase64(photo);
       }
 
-      await set(newRef, {
-        id: newRef.key,
-        token: token,
-        name: name,
-        email: email,
-        event: event,
-        photo: base64Image,
-        used: false,
-        status: "active"
+      const res = await fetch("/api/createUserAndPass", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          event,
+          photo: base64Image || photo || "", // 🔥 handles both cases
+        }),
       });
 
-      alert("Pass created");
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Pass created successfully 🎉");
+      } else {
+        alert(data.error || "Something went wrong");
+      }
 
       setName("");
       setEmail("");
       setEvent("");
       setPhoto(null);
+      setUserExists(false);
 
-    } catch (error) {
-      console.error(error);
-      alert("Error creating pass");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
     }
   };
 
+  // 🔄 FETCH PASSES
   useEffect(() => {
     const passesRef = ref(db, "passes");
 
@@ -66,7 +104,7 @@ export default function AdminPage() {
 
         const passList = Object.entries(data).map(([id, value]) => ({
           id,
-          ...value
+          ...value,
         }));
 
         setPasses(passList);
@@ -84,7 +122,7 @@ export default function AdminPage() {
         minHeight: "100vh",
         background: "#0f172a",
         color: "white",
-        padding: "30px"
+        padding: "30px",
       }}
     >
       <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
@@ -99,25 +137,30 @@ export default function AdminPage() {
           borderRadius: "12px",
           maxWidth: "400px",
           margin: "auto",
-          marginBottom: "40px"
+          marginBottom: "40px",
         }}
       >
         <h2>Create Pass</h2>
 
-        <input
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={inputStyle}
-        />
-
+        {/* EMAIL */}
         <input
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => checkUser(email)}
           style={inputStyle}
         />
 
+        {/* NAME */}
+        <input
+          placeholder="Name"
+          value={name}
+          disabled={userExists}
+          onChange={(e) => setName(e.target.value)}
+          style={inputStyle}
+        />
+
+        {/* EVENT */}
         <input
           placeholder="Event"
           value={event}
@@ -125,12 +168,31 @@ export default function AdminPage() {
           style={inputStyle}
         />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setPhoto(e.target.files[0])}
-          style={{ marginTop: "10px", color: "white" }}
-        />
+        {/* PHOTO SECTION */}
+        {userExists ? (
+          <div style={{ marginTop: "10px", textAlign: "center" }}>
+            <p style={{ color: "#22c55e" }}>✔ Existing user</p>
+
+            {photo && (
+              <img
+                src={photo}
+                alt="user"
+                style={{
+                  width: "100px",
+                  borderRadius: "10px",
+                  marginTop: "10px",
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files[0])}
+            style={{ marginTop: "10px", color: "white" }}
+          />
+        )}
 
         <button onClick={createPass} style={buttonStyle}>
           Create Pass
@@ -146,7 +208,7 @@ export default function AdminPage() {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: "20px"
+          gap: "20px",
         }}
       >
         {passes.map((pass) => (
@@ -156,7 +218,7 @@ export default function AdminPage() {
               background: "#1e293b",
               padding: "20px",
               borderRadius: "12px",
-              textAlign: "center"
+              textAlign: "center",
             }}
           >
             <p><b>{pass.name}</b></p>
@@ -170,7 +232,6 @@ export default function AdminPage() {
               </span>
             </p>
 
-            {/* PHOTO */}
             {pass.photo && (
               <img
                 src={pass.photo}
@@ -178,22 +239,20 @@ export default function AdminPage() {
                 style={{
                   width: "100px",
                   borderRadius: "10px",
-                  margin: "10px auto"
+                  margin: "10px auto",
                 }}
               />
             )}
 
-            {/* QR BOX (IMPORTANT FOR SCANNING) */}
             <div
               style={{
                 marginTop: "15px",
                 padding: "15px",
                 background: "white",
                 borderRadius: "10px",
-                display: "inline-block"
+                display: "inline-block",
               }}
             >
-              
               <QRCodeCanvas
                 value={`${pass.id}:${pass.token}`}
                 size={220}
@@ -206,13 +265,13 @@ export default function AdminPage() {
   );
 }
 
-// 🔥 styles
+// styles
 const inputStyle = {
   width: "100%",
   padding: "10px",
   marginTop: "10px",
   borderRadius: "6px",
-  border: "none"
+  border: "none",
 };
 
 const buttonStyle = {
@@ -223,5 +282,5 @@ const buttonStyle = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  cursor: "pointer"
+  cursor: "pointer",
 };
