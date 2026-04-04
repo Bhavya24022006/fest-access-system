@@ -193,6 +193,7 @@ export default function AdminPage() {
                 display: "inline-block"
               }}
             >
+              
               <QRCodeCanvas
                 value={`${pass.id}:${pass.token}`}
                 size={220}
