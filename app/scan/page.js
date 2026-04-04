@@ -11,6 +11,11 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
 
+  // 🔥 prevent server-side execution
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   const startScanner = async () => {
     try {
       hasScanned.current = false;
@@ -33,52 +38,48 @@ export default function ScanPage() {
 
           let cleanText = decodedText?.trim();
 
-          // SAFETY CHECK
-          if (!cleanText) {
+          if (!cleanText || !cleanText.includes(":")) {
             setResult({
-              status: "error",
-              message: "Empty QR value"
+              status: "invalid",
+              message: "Invalid QR format",
             });
             return;
           }
 
-          // JSON QR support
-          if (cleanText.startsWith("{")) {
-            try {
-              const obj = JSON.parse(cleanText);
-              cleanText = obj.id;
-            } catch {}
+          const [id, token] = cleanText.split(":");
+
+          if (!id || !token) {
+            setResult({
+              status: "invalid",
+              message: "Corrupted QR",
+            });
+            return;
           }
 
-          // URL QR support
-          if (cleanText.includes("id=")) {
-            cleanText = cleanText.split("id=")[1];
-          }
-
-          // REMOVE INVALID FIREBASE CHARS
-          cleanText = cleanText.replace(/[.#$[\]/]/g, "");
-
-          console.log("FINAL VALUE:", cleanText);
-
-          setResult({
-            status: "scanned",
-            raw: cleanText
-          });
+          setResult({ status: "scanned" });
 
           try {
-            const passRef = ref(db, "passes/" + cleanText);
+            const passRef = ref(db, "passes/" + id);
             const snapshot = await get(passRef);
-
-            console.log("DB RESULT:", snapshot.val());
 
             if (snapshot.exists()) {
               const data = snapshot.val();
 
+              // 🔐 Token validation
+              if (data.token !== token) {
+                setResult({
+                  status: "invalid",
+                  message: "QR tampered",
+                });
+                return;
+              }
+
+              // 🔁 Already used
               if (data.used) {
                 setResult({
                   status: "used",
                   name: data.name,
-                  raw: cleanText
+                  photo: data.photo,
                 });
               } else {
                 await update(passRef, { used: true });
@@ -86,23 +87,20 @@ export default function ScanPage() {
                 setResult({
                   status: "allowed",
                   name: data.name,
-                  raw: cleanText
+                  photo: data.photo,
                 });
               }
             } else {
               setResult({
                 status: "invalid",
-                raw: cleanText
+                message: "Pass not found",
               });
             }
-
           } catch (err) {
-            console.error("ERROR:", err);
-
+            console.error(err);
             setResult({
               status: "error",
               message: err.message,
-              raw: cleanText
             });
           }
 
@@ -115,62 +113,95 @@ export default function ScanPage() {
           }, 3000);
         }
       );
-
     } catch (err) {
-      console.error("START ERROR:", err);
-
+      console.error(err);
       setResult({
         status: "error",
-        message: err.message
+        message: err.message,
       });
-
       setScanning(false);
     }
   };
 
   return (
-    <div style={{ padding: 20, textAlign: "center" }}>
-      <h1>Scan QR</h1>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0f172a",
+        color: "white",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <h1 style={{ marginBottom: "20px" }}>🎟 Scan Entry Pass</h1>
 
+      {/* RESULT BOX */}
       {result && (
         <div
           style={{
-            padding: "20px",
+            padding: "15px",
             marginBottom: "20px",
-            color: "white",
-            fontSize: "18px",
+            borderRadius: "10px",
+            textAlign: "center",
+            width: "300px",
             background:
               result.status === "allowed"
-                ? "green"
+                ? "#16a34a"
                 : result.status === "used"
-                ? "orange"
+                ? "#f59e0b"
                 : result.status === "invalid"
-                ? "red"
-                : result.status === "scanned"
-                ? "blue"
-                : "black",
+                ? "#dc2626"
+                : "#2563eb",
           }}
         >
-          <p>Status: {result.status}</p>
+          <p><b>Status:</b> {result.status}</p>
+          {result.name && <p>{result.name}</p>}
+          {result.message && <p>{result.message}</p>}
 
-          {result.raw && <p>QR: {result.raw}</p>}
-          {result.name && <p>Name: {result.name}</p>}
-          {result.message && <p>Error: {result.message}</p>}
+          {result.photo && (
+            <img
+              src={result.photo}
+              alt="User"
+              style={{
+                width: "120px",
+                borderRadius: "10px",
+                marginTop: "10px",
+              }}
+            />
+          )}
         </div>
       )}
 
+      {/* START BUTTON */}
       {!scanning && !result && (
         <button
           onClick={startScanner}
-          style={{ padding: "10px 20px", fontSize: "16px" }}
+          style={{
+            padding: "12px 25px",
+            fontSize: "16px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#22c55e",
+            color: "white",
+            cursor: "pointer",
+            marginBottom: "20px",
+          }}
         >
           Start Scanning
         </button>
       )}
 
+      {/* CAMERA BOX */}
       <div
         id="reader"
-        style={{ width: "300px", margin: "20px auto" }}
+        style={{
+          width: "320px",
+          borderRadius: "12px",
+          overflow: "hidden",
+          border: "2px solid #22c55e",
+        }}
       ></div>
     </div>
   );

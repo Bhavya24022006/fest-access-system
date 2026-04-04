@@ -5,23 +5,43 @@ import { db } from "@/lib/firebase";
 import { ref, push, set, onValue } from "firebase/database";
 import { QRCodeCanvas } from "qrcode.react";
 
-
 export default function AdminPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [event, setEvent] = useState("");
   const [passes, setPasses] = useState([]);
-  
+  const [photo, setPhoto] = useState(null);
+
+  // 🔥 Convert image → base64
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const createPass = async () => {
     try {
-      const newRef = push(ref(db, "passes")); 
+      const newRef = push(ref(db, "passes"));
+      const token = crypto.randomUUID();
+
+      let base64Image = "";
+
+      if (photo) {
+        base64Image = await convertToBase64(photo);
+      }
 
       await set(newRef, {
-        id: newRef.key, 
+        id: newRef.key,
+        token: token,
         name: name,
         email: email,
         event: event,
-        used: false
+        photo: base64Image,
+        used: false,
+        status: "active"
       });
 
       alert("Pass created");
@@ -29,13 +49,14 @@ export default function AdminPage() {
       setName("");
       setEmail("");
       setEvent("");
+      setPhoto(null);
+
     } catch (error) {
       console.error(error);
       alert("Error creating pass");
     }
   };
 
-  
   useEffect(() => {
     const passesRef = ref(db, "passes");
 
@@ -58,61 +79,148 @@ export default function AdminPage() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Create Pass</h1>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0f172a",
+        color: "white",
+        padding: "30px"
+      }}
+    >
+      <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
+        🎟 Admin Dashboard
+      </h1>
 
-      <input
-        placeholder="Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <br /><br />
+      {/* FORM */}
+      <div
+        style={{
+          background: "#1e293b",
+          padding: "20px",
+          borderRadius: "12px",
+          maxWidth: "400px",
+          margin: "auto",
+          marginBottom: "40px"
+        }}
+      >
+        <h2>Create Pass</h2>
 
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <br /><br />
+        <input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={inputStyle}
+        />
 
-      <input
-        placeholder="Event"
-        value={event}
-        onChange={(e) => setEvent(e.target.value)}
-      />
-      <br /><br />
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
+        />
 
-      <button onClick={createPass}>Create Pass</button>
+        <input
+          placeholder="Event"
+          value={event}
+          onChange={(e) => setEvent(e.target.value)}
+          style={inputStyle}
+        />
 
-      <hr />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setPhoto(e.target.files[0])}
+          style={{ marginTop: "10px", color: "white" }}
+        />
 
-      <h2>All Passes</h2>
+        <button onClick={createPass} style={buttonStyle}>
+          Create Pass
+        </button>
+      </div>
 
-      {passes.map((pass) => (
-        <div
-          key={pass.id}
-          style={{
-            border: "1px solid black",
-            margin: 10,
-            padding: 10
-          }}
-        >
-          <p>Name: {pass.name}</p>
-          <p>Email: {pass.email}</p>
-          <p>Event: {pass.event}</p>
-          <p>Status: {pass.used ? "Used" : "Not Used"}</p>
+      {/* PASSES */}
+      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+        All Passes
+      </h2>
 
-        
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: "20px"
+        }}
+      >
+        {passes.map((pass) => (
+          <div
+            key={pass.id}
+            style={{
+              background: "#1e293b",
+              padding: "20px",
+              borderRadius: "12px",
+              textAlign: "center"
+            }}
+          >
+            <p><b>{pass.name}</b></p>
+            <p>{pass.email}</p>
+            <p>{pass.event}</p>
 
-          <QRCodeCanvas 
-          value={pass.id} 
-          size={300}
-          bgColor="#ffffff"
-          fgColor="#000000"
-          includeMargin={true}
-         />
-        </div>
-      ))}
+            <p>
+              Status:{" "}
+              <span style={{ color: pass.used ? "#f59e0b" : "#22c55e" }}>
+                {pass.used ? "Used" : "Not Used"}
+              </span>
+            </p>
+
+            {/* PHOTO */}
+            {pass.photo && (
+              <img
+                src={pass.photo}
+                alt="user"
+                style={{
+                  width: "100px",
+                  borderRadius: "10px",
+                  margin: "10px auto"
+                }}
+              />
+            )}
+
+            {/* QR BOX (IMPORTANT FOR SCANNING) */}
+            <div
+              style={{
+                marginTop: "15px",
+                padding: "15px",
+                background: "white",
+                borderRadius: "10px",
+                display: "inline-block"
+              }}
+            >
+              <QRCodeCanvas
+                value={`${pass.id}:${pass.token}`}
+                size={220}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
+// 🔥 styles
+const inputStyle = {
+  width: "100%",
+  padding: "10px",
+  marginTop: "10px",
+  borderRadius: "6px",
+  border: "none"
+};
+
+const buttonStyle = {
+  width: "100%",
+  padding: "12px",
+  marginTop: "15px",
+  background: "#22c55e",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer"
+};
