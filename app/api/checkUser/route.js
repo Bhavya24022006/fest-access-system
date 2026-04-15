@@ -26,6 +26,7 @@ export async function GET(req) {
     if (snapshot.exists()) {
       const data = snapshot.val();
 
+      
       return NextResponse.json({
         exists: true,
         name: data.name,

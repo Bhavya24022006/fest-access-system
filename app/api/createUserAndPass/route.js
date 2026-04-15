@@ -29,8 +29,7 @@ export async function POST(req) {
         displayName: name,
       });
       uid = newUser.uid;
-
-      // 🔥 STORE USER DATA (WITH PHOTO)
+ 
       await db.ref("users/" + uid).set({
         name,
         email,
